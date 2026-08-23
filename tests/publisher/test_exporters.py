@@ -100,16 +100,10 @@ def _fake_logfire_module():
 class TestGuardLogfire:
     def test_raises_when_logfire_missing(self):
         with patch.dict(sys.modules, {"logfire": None}):
-            # Remove from sys.modules so the import attempt actually fails
-            saved = sys.modules.pop("logfire", ...)
-            try:
-                from agentflow.runtime.publisher.exporters import _guard_logfire
+            from agentflow.runtime.publisher.exporters import _guard_logfire
 
-                with pytest.raises(ImportError, match="logfire"):
-                    _guard_logfire()
-            finally:
-                if saved is not ...:
-                    sys.modules["logfire"] = saved
+            with pytest.raises(ImportError, match="logfire"):
+                _guard_logfire()
 
     def test_passes_when_logfire_present(self):
         fake_lf = _fake_logfire_module()
@@ -283,17 +277,11 @@ class TestSetupLogfire:
 
     def test_raises_when_logfire_missing(self):
         graph = _make_graph()
-        # Remove logfire entirely
-        saved = sys.modules.pop("logfire", ...)
-        try:
-            sys.modules.pop("logfire", None)
+        with patch.dict(sys.modules, {"logfire": None}):
             from agentflow.runtime.publisher.exporters import setup_logfire
 
             with pytest.raises(ImportError, match="logfire"):
                 setup_logfire(graph)
-        finally:
-            if saved is not ...:
-                sys.modules["logfire"] = saved
 
     def test_level_passed_to_setup_tracing(self):
         from agentflow.runtime.publisher.otel_publisher import ObservabilityLevel

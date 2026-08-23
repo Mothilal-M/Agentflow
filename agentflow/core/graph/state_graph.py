@@ -522,6 +522,13 @@ class StateGraph[StateT: AgentState]:
             allow_concrete=True,
         )  # not null as we set default
         self._container.bind_instance(StateGraph, self)
+        if self._publisher is not None or self._container.try_get(BasePublisher) is None:
+            self._container.bind_instance(
+                BasePublisher,
+                self._publisher,
+                allow_none=True,
+                allow_concrete=True,
+            )
 
         # Bind Nodes
         self._container.bind_factory("get_node", lambda x: self.nodes[x])
