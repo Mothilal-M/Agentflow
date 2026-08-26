@@ -282,7 +282,7 @@ class OtelPublisher(BasePublisher):
         span = self._registry.pop_graph(event.run_id)
         if span is None:
             return
-        error_msg = event.data.get("error", "")
+        error_msg = str(event.data.get("error") or event.metadata.get("error", ""))
         span.set_status(StatusCode.ERROR, error_msg)
         span.add_event("graph.error", attributes={"error": error_msg})
         span.end(end_time=_ns(event.timestamp))
@@ -377,9 +377,13 @@ class OtelPublisher(BasePublisher):
         )
         span.set_attribute(GEN_AI_OPERATION, "node")
         span.set_attribute(NODE_NAME, event.node_name)
-        step = event.data.get("step")
+        step = (
+            event.data.get("step")
+            or (event.data.get("state") or {}).get("execution_meta", {}).get("step")
+            or event.metadata.get("step")
+        )
         if step is not None:
-            span.set_attribute(NODE_STEP, step)
+            span.set_attribute(NODE_STEP, int(step))
 
         if self._level == ObservabilityLevel.FULL:
             input_messages = event.data.get("input_messages") or event.data.get("messages")
@@ -433,7 +437,7 @@ class OtelPublisher(BasePublisher):
         span = self._registry.pop_child(event.run_id, event.node_name)
         if span is None:
             return
-        error_msg = event.data.get("error", "")
+        error_msg = str(event.data.get("error") or event.metadata.get("error", ""))
         span.set_status(StatusCode.ERROR, error_msg)
         span.add_event("node.error", attributes={"error": error_msg})
         span.end(end_time=_ns(event.timestamp))
@@ -558,7 +562,7 @@ class OtelPublisher(BasePublisher):
         span = self._registry.pop_child(event.run_id, f"llm:{event.node_name}")
         if span is None:
             return
-        error_msg = event.data.get("error", "")
+        error_msg = str(event.data.get("error") or event.metadata.get("error", ""))
         span.set_status(StatusCode.ERROR, error_msg)
         span.add_event("llm.error", attributes={"error": error_msg})
         span.end(end_time=_ns(event.timestamp))
@@ -638,7 +642,7 @@ class OtelPublisher(BasePublisher):
         span = self._registry.pop_child(event.run_id, span_key)
         if span is None:
             return
-        error_msg = event.data.get("error", "")
+        error_msg = str(event.data.get("error") or event.metadata.get("error", ""))
         span.set_status(StatusCode.ERROR, error_msg)
         span.add_event("tool.error", attributes={"error": error_msg})
         span.end(end_time=_ns(event.timestamp))
@@ -729,4 +733,11 @@ def setup_tracing(
     _guard()
     publisher = OtelPublisher(tracer=tracer, level=level)
     graph._publisher = publisher
+    if hasattr(graph, "_container") and graph._container is not None:
+        graph._container.bind_instance(
+            BasePublisher,
+            publisher,
+            allow_none=True,
+            allow_concrete=True,
+        )
     return publisher
